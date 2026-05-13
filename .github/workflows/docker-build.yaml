@@ -42,6 +42,7 @@ jobs:
     if: needs.pre-check.outputs.should_build == 'true'
     runs-on: ${{ matrix.runner }}
     outputs:
+      repository: ${{ steps.image.outputs.repository }}
       version: ${{ steps.version.outputs.version }}
       is_beta: ${{ steps.version.outputs.is_beta }}
 
@@ -59,6 +60,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Determine image repository
+        id: image
+        run: |
+          repository=$(printf '%s' "${{ github.repository }}" | tr '[:upper:]' '[:lower:]' | tr '.' '-')
+          echo "repository=${repository}" >> "$GITHUB_OUTPUT"
 
       - name: Determine version
         id: version
@@ -94,7 +101,7 @@ jobs:
           cache-to: type=gha,mode=max
           push: true
           provenance: false
-          tags: ghcr.io/${{ github.repository_owner }}/kiro-rs:${{ steps.version.outputs.version }}-${{ matrix.arch }}
+          tags: ghcr.io/${{ steps.image.outputs.repository }}:${{ steps.version.outputs.version }}-${{ matrix.arch }}
           labels: |
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.description=Kiro.rs Docker Image
@@ -114,7 +121,7 @@ jobs:
         run: |
           VERSION="${{ needs.build.outputs.version }}"
           IS_BETA="${{ needs.build.outputs.is_beta }}"
-          IMAGE="ghcr.io/${{ github.repository_owner }}/kiro-rs"
+          IMAGE="ghcr.io/${{ needs.build.outputs.repository }}"
 
           # Create manifest for version tag
           docker manifest create ${IMAGE}:${VERSION} \
